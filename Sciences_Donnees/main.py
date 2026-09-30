@@ -30,9 +30,20 @@ moyennes_lignes = np.mean(data, axis=1)    # Une moyenne par ligne
 class Methode1:
     def __init__(self, data):
         self.data = data
+        # Cache commun a toutes les classes 
+        self.inv_cov = None
+
+    def _distance(self, patient, centre, mesureChoix):
+        if mesureChoix == "mahalanobis":
+            if self.inv_cov is None:
+                self.cov = np.atleast_2d(np.cov(self.data, rowvar=False))
+                # La pseudo-inverse accepte aussi une covariance singuliere.
+                self.inv_cov = np.linalg.pinv(self.cov, hermitian=True)
+            return dist_dict[mesureChoix](patient, centre, self.inv_cov)
+        return dist_dict[mesureChoix](patient, centre)
         
     
-    def DistIntraClasse(self,tumeurs : String, mesureChoix):
+    def DistIntraClasse(self,tumeurs : str, mesureChoix):
         
         data_tumeurs = self.data.loc[classes == tumeurs]
         xc = data_tumeurs.mean(axis=0)
@@ -40,7 +51,7 @@ class Methode1:
         
         max = 0
         for i in range(0,data_tumeurs.shape[0]):
-            tmp = dist_dict[mesureChoix](data_tumeurs.iloc[i], xc)
+            tmp = self._distance(data_tumeurs.iloc[i], xc, mesureChoix)
             if tmp > max:
                 max = tmp
         print(max)
@@ -59,7 +70,7 @@ class Methode1:
         
         distC1_C2 = float("inf")
         for i in range(0,n):
-            tmp = dist_dict[mesureChoix](data_tm1.iloc[i], xc_tm2)
+            tmp = self._distance(data_tm1.iloc[i], xc_tm2, mesureChoix)
             if tmp < distC1_C2:
                 distC1_C2 = tmp
         print(distC1_C2)
@@ -73,7 +84,7 @@ class Methode1:
         
         distC2_C1 = float("inf")
         for i in range(0,m):
-            tmp = dist_dict[mesureChoix](data_tm2.iloc[i], xc_tm1)
+            tmp = self._distance(data_tm2.iloc[i], xc_tm1, mesureChoix)
             if tmp < distC2_C1:
                 distC2_C1 = tmp
         print(distC2_C1)
@@ -88,8 +99,8 @@ class Methode1:
         dIC1C2 = 2*self.DistInterClasse(tumeurs1,tumeurs2,mesureChoix)
         
         return (dC1+dC2) / dIC1C2
-        
-        
+    
+
             
     
 data_100 = pd.read_csv("./donnees_reduites/data_100.csv", index_col=0)
@@ -99,7 +110,7 @@ labels = pd.read_csv("./donnees_reduites/labels.csv", index_col=0)
 data = pd.read_csv("./data.csv", index_col=0)
 
 data_5000 = pd.read_csv("./donnees_reduites/data_5000.csv", index_col=0)
-classes = labels["Class"].reindex(data.index)
+classes = labels["Class"].reindex(data_100.index)
 
 
 patients_brca = data_100.loc[classes == "BRCA"]
@@ -108,9 +119,9 @@ print(patients_brca)
 print(patients_brca["gene_505"])
 print(patients_brca.iloc[10])
 
-x = Methode1(data)
-x.DistIntraClasse("BRCA","euclidienne")
-x.DistInterClasse("BRCA","COAD","manhattan")
+x = Methode1(data_100)
+x.DistIntraClasse("BRCA","mahalanobis")
+x.DistInterClasse("BRCA","COAD","mahalanobis")
 x.overlap("BRCA","PRAD","euclidienne")
 #labels = ["BRCA", "COAD", "KIRC", "LUAD", "PRAD"]
 print(data_100["gene_505"][2])
